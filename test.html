@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pejuang Ngabuburit - RPG</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #222;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        #game-container {
+            width: 800px;
+            max-width: 100%;
+            background-color: #000;
+            border: 4px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.9);
+        }
+
+        #battle-screen {
+            width: 100%;
+            height: 350px;
+            background: linear-gradient(to bottom, #4a90e2, #90c2e7);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-panel {
+            display: flex;
+            height: 200px;
+            border-top: 4px solid #fff;
+            background-color: #000;
+        }
+
+        .panel-box {
+            padding: 15px;
+            border-right: 4px solid #fff;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-box:last-child {
+            border-right: none;
+        }
+
+        #stats-panel {
+            width: 30%;
+            font-size: 12px;
+            line-height: 2;
+        }
+
+        #log-panel {
+            width: 45%;
+            font-size: 12px;
+            line-height: 1.8;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+
+        /* Styling scrollbar untuk log */
+        #log-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #log-panel::-webkit-scrollbar-track {
+            background: #222;
+        }
+
+        #log-panel::-webkit-scrollbar-thumb {
+            background: #fff;
+        }
+
+        #command-panel {
+            width: 25%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-command {
+            background: transparent;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 8px;
+            /* Dikecilkan sedikit agar muat 6 tombol */
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            cursor: pointer;
+            text-align: left;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-command:hover:not(:disabled) {
+            background-color: #fff;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        .btn-command:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .btn-command:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        .stat-bar-container {
+            width: 100%;
+            background-color: #333;
+            height: 12px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #fff;
+        }
+
+        .stat-bar {
+            height: 100%;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #iman-bar {
+            background-color: #e74c3c;
+        }
+
+        #konsentrasi-bar {
+            background-color: #3498db;
+        }
+
+        .time-display {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 2px solid #fff;
+            font-size: 14px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .enemy-info {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border: 2px solid #fff;
+            font-size: 12px;
+            text-align: right;
+            text-shadow: 2px 2px 0 #000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <div id="battle-screen">
+            <canvas id="gameCanvas" width="800" height="350"></canvas>
+            <div class="time-display" id="clock">Jam: 15:00</div>
+            <div class="enemy-info" id="enemy-ui">
+                <span id="enemy-name" style="color: #f1c40f;">Musuh</span><br>
+                HP: <span id="enemy-hp">0</span>
+            </div>
+        </div>
+        <div id="ui-panel">
+            <div class="panel-box" id="stats-panel">
+                <div style="color: #2ecc71;">PEJUANG TAKJIL</div>
+                <div style="margin-top: 10px;">IMAN (HP)</div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar" id="iman-bar" style="width: 100%;"></div>
+                </div>
+                <div id="iman-text">150/150</div>
+
+                <div style="margin-top: 10px;">FOKUS (MP)</div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar" id="konsentrasi-bar" style="width: 100%;"></div>
+                </div>
+                <div id="konsentrasi-text">50/50</div>
+            </div>
+            <div class="panel-box" id="log-panel">
+                <div id="log-text">
+                    Pertarungan Ngabuburit dimulai!<br>
+                    Tahan godaan sampai jam 18:00!
+                </div>
+            </div>
+            <div class="panel-box" id="command-panel">
+                <button class="btn-command" onclick="playerAction('serang')" id="btn-serang">SERANG</button>
+                <button class="btn-command" onclick="playerAction('sabar')" id="btn-sabar">SABAR (Heal)</button>
+                <button class="btn-command" onclick="playerAction('fokus')" id="btn-fokus">FOKUS (Buff)</button>
+                <button class="btn-command" onclick="playerAction('nasihat')" id="btn-nasihat"
+                    style="color:#f1c40f; border-color:#f1c40f;">✨ NASIHAT (20 MP)</button>
+                <button class="btn-command" onclick="playerAction('ultimate')" id="btn-ultimate"
+                    style="color:#ff7675; border-color:#ff7675;">🔥 PAMUNGKAS (2x)</button>
+                <button class="btn-command" onclick="playerAction('lari')" id="btn-lari">LARI</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- KONFIGURASI STATE GAME ---
+        let timeMinutes = 15 * 60; // Mulai jam 15:00
+        const endTime = 18 * 60;   // Buka Puasa jam 18:00
+        let isPlayerTurn = true;
+        let gameOver = false;
+
+        // Koordinat Dasar Animasi
+        const basePlayerX = 120;
+        const basePlayerY = 150;
+        const baseEnemyX = 550;
+        const baseEnemyY = 150;
+
+        let player = {
+            maxIman: 150, iman: 150,
+            maxKonsentrasi: 50, konsentrasi: 50,
+            baseAttack: 20, buffTurns: 0,
+            ultimateUses: 2, // Limit penggunaan pamungkas
+            x: basePlayerX, y: basePlayerY,
+            state: 'idle', // idle, attack, hurt, heal
+            hitTimer: 0
+        };
+
+        // Palet warna pixel art retro
+        const pal = {
+            0: "transparent", 1: "#000000", // outline
+            // Gorengan
+            2: "#d35400", 3: "#e67e22", 4: "#f1c40f", 5: "#c0392b",
+            // Es Buah
+            6: "#0984e3", 7: "#74b9ff", 8: "#dfe6e9", 9: "#ff7675",
+            // Kolak Naga
+            A: "#6c5ce7", B: "#a29bfe", C: "#fdcb6e", D: "#e84393",
+            // Player (Pejuang Takjil)
+            E: "#f1c27d", // Warna kulit
+            F: "#27ae60", // Hijau gelap (Sarung)
+            G: "#2ecc71", // Hijau terang (Sarung)
+            H: "#a0522d", // Coklat (Spatula)
+            I: "#ffffff", // Putih (Baju)
+            J: "#2d3436"  // Abu gelap/Hitam (Peci & Rambut)
+        };
+
+        // --- DATA PIXEL ART KARAKTER ---
+        const sprPlayerIdle = [
+            "0000011111100000",
+            "00001JJJJJJ10000",
+            "00001E11E1110011",
+            "00001EEEEEE100H1",
+            "00011IIIIII110H1",
+            "001E1IIIIII1E1H1",
+            "001E1IIIIII1E1H1",
+            "00111FFFFFF111H1",
+            "00001FGGGGGF1011",
+            "00001FGGGGGF1000",
+            "00001FGGGGGF1000",
+            "0000111001110000",
+            "0001EE1001EE1000",
+            "0001111001111000"
+        ];
+
+        const sprPlayerAttack = [
+            "0000011111100000",
+            "00001JJJJJJ10000",
+            "000011EEEEE10000",
+            "00011IIIIII11000",
+            "001E1IIIIII1E100",
+            "00111IIIIII1E111", // Tangan julur ke depan
+            "00001FFFFFF110HH", // Spatula menyabet
+            "00001FGGGGGF10HH",
+            "00001FGGGGGF1000",
+            "00001FGGGGGF1000",
+            "0000111001110000",
+            "0001EE1001EE1000",
+            "0001111001111000"
+        ];
+
+        // Data Pixel Art Musuh (String Array map ke palet)
+        const sprGorengan = [
+            "0000011111110000",
+            "0001133333331100",
+            "0013344444433100",
+            "0134444444444310",
+            "0134554443444310",
+            "1344554443344431",
+            "1344444443334431",
+            "1334444433344431",
+            "1233444433444321",
+            "0123333333333210",
+            "0122333333322210",
+            "0012222222222100",
+            "0001111111111000"
+        ];
+
+        const sprEsBuah = [
+            "0000001111000000",
+            "0000117777110000",
+            "0001777777771000",
+            "0017788887777100",
+            "0177888888777710",
+            "0178899889987710",
+            "1788999889998771",
+            "1788898888988771",
+            "1677888888887761",
+            "0167777777777610",
+            "0016666666666100",
+            "0001111111111000"
+        ];
+
+        const sprKolak = [
+            "0000000111100000",
+            "0000011ABBA10000",
+            "00001AABBBBA1000",
+            "0001AABBDBBAA100",
+            "001AABBDDBBAAA10",
+            "01AAABBBBBBAAA10",
+            "1AA111AAA111AAA1",
+            "1A1CCC1AA1CCC1A1",
+            "1A1CCC1AA1CCC1A1",
+            "1AA111AAA111AAA1",
+            "01AAAAA11AAAAA10",
+            "001AAAAAAAAAA100",
+            "0001111111111000"
+        ];
+
+        const enemyTypes = [
+            { name: "Gorengan Squad", maxHp: 60, attack: 10, type: "Fire", pixelData: sprGorengan, w: 120, h: 100 },
+            { name: "Es Buah Elemental", maxHp: 80, attack: 15, type: "Ice", pixelData: sprEsBuah, w: 120, h: 90 },
+            { name: "Great Kolak Naga", maxHp: 200, attack: 25, type: "Boss", pixelData: sprKolak, w: 140, h: 110 }
+        ];
+
+        let currentEnemy = null;
+        let isWaitingForLLM = false;
+        let floatingTexts = [];
+        let particles = [];
+        let screenShake = 0;
+
+        // Lerp helper untuk animasi mulus
+        const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
+
+        // Elemen DOM
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const logEl = document.getElementById("log-text");
+        const clockEl = document.getElementById("clock");
+
+        // --- LOGIKA UTAMA GAME ---
+
+        function initGame() {
+            spawnEnemy();
+            updateUI();
+        }
+
+        function formatTime(minutes) {
+            let h = Math.floor(minutes / 60);
+            let m = minutes % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        }
+
+        function log(msg) {
+            logEl.innerHTML += `<div style="margin-top: 8px; border-left: 3px solid #fff; padding-left: 8px;">${msg}</div>`;
+            // Auto scroll mulus
+            setTimeout(() => {
+                logEl.scrollTo({ top: logEl.scrollHeight, behavior: 'smooth' });
+            }, 50);
+        }
+
+        function addFloatingText(x, y, text, color, isCrit = false) {
+            floatingTexts.push({
+                x: x, y: y, text: text, color: color,
+                alpha: 1, life: isCrit ? 80 : 50,
+                size: isCrit ? 24 : 16,
+                vy: isCrit ? -2.5 : -1.5
+            });
+        }
+
+        function createParticles(x, y, color, count, type = "burst") {
+            for (let i = 0; i < count; i++) {
+                let vx = (Math.random() - 0.5) * 8;
+                let vy = (Math.random() - 0.5) * 8;
+                if (type === "heal") {
+                    vx = (Math.random() - 0.5) * 4;
+                    vy = -Math.random() * 5 - 2;
+                }
+                particles.push({
+                    x: x, y: y, vx: vx, vy: vy,
+                    color: color, life: 30 + Math.random() * 20, size: Math.random() * 6 + 4
+                });
+            }
+        }
+
+        // --- INTEGRASI GEMINI API ---
+        async function callGemini(promptText) {
+            const apiKey = "";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            let retries = 5;
+            let delay = 1000;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: "Kamu adalah narator game RPG kocak bertema puasa ramadan di Indonesia. Balas dengan bahasa yang santai, gaul, dan kocak maks 1-2 kalimat." }] }
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error("API Error");
+                    const data = await response.json();
+                    return data.candidates[0].content.parts[0].text.trim();
+                } catch (error) {
+                    if (i === retries - 1) return "Koneksi batin terputus! Tetap semangat puasanya!";
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        function updateUI() {
+            let imanPct = Math.max(0, (player.iman / player.maxIman) * 100);
+            let konPct = Math.max(0, (player.konsentrasi / player.maxKonsentrasi) * 100);
+
+            document.getElementById("iman-bar").style.width = imanPct + "%";
+            document.getElementById("iman-text").innerText = `${Math.floor(player.iman)}/${player.maxIman}`;
+
+            document.getElementById("konsentrasi-bar").style.width = konPct + "%";
+            document.getElementById("konsentrasi-text").innerText = `${Math.floor(player.konsentrasi)}/${player.maxKonsentrasi}`;
+
+            clockEl.innerText = `Jam: ${formatTime(timeMinutes)}`;
+            if (currentEnemy) {
+                document.getElementById("enemy-name").innerText = currentEnemy.name;
+                document.getElementById("enemy-hp").innerText = Math.floor(currentEnemy.hp);
+            }
+
+            document.getElementById("btn-lari").disabled = (timeMinutes >= 17 * 60) || !isPlayerTurn || gameOver || isWaitingForLLM;
+            const btns = document.querySelectorAll(".btn-command");
+            btns.forEach(btn => {
+                if (btn.id !== 'btn-lari') btn.disabled = !isPlayerTurn || gameOver || isWaitingForLLM;
+            });
+
+            // Update teks tombol ultimate
+            document.getElementById("btn-ultimate").innerText = `🔥 PAMUNGKAS (${player.ultimateUses}x)`;
+        }
+
+        function spawnEnemy() {
+            let enemyTemplate = (timeMinutes >= 17 * 60 + 30) ? enemyTypes[2] : enemyTypes[Math.floor(Math.random() * 2)];
+            let hoursPassed = Math.floor((timeMinutes - (15 * 60)) / 60);
+            let multiplier = 1.0 + (hoursPassed * 0.1);
+
+            currentEnemy = {
+                name: enemyTemplate.name,
+                maxHp: enemyTemplate.maxHp * multiplier,
+                hp: enemyTemplate.maxHp * multiplier,
+                attack: enemyTemplate.attack * multiplier,
+                pixelData: enemyTemplate.pixelData,
+                w: enemyTemplate.w, h: enemyTemplate.h,
+                x: baseEnemyX, y: baseEnemyY,
+                state: 'idle', blinkTimer: 0
+            };
+
+            log(`Seekor <span style="color:#e74c3c; font-weight:bold;">${currentEnemy.name}</span> muncul menggoda imanmu!`);
+            createParticles(baseEnemyX + 60, baseEnemyY + 50, "#fff", 20); // Efek spawn
+            updateUI();
+        }
+
+        function triggerEndGame(isWin) {
+            gameOver = true;
+            updateUI();
+            log("<i style='color:#bdc3c7'>Menunggu takdir... ✨</i>");
+
+            const prompt = isWin ?
+                "Pemain menang dan berhasil tamat puasa jam 18:00 melawan godaan monster makanan. Berikan ucapan selamat berbuka yang epik dan lucu." :
+                "Pemain batal puasa karena kalah iman digoda monster makanan. Berikan ledekan lucu dan nasihat untuk ganti puasa.";
+
+            callGemini(prompt).then(res => {
+                log(`<br><span style='color:${isWin ? '#f1c40f' : '#e74c3c'}; font-size: 14px; line-height: 1.5;'><b>✨ NARRATOR:</b><br>"${res}"</span>`);
+            });
+        }
+
+        function advanceTime() {
+            timeMinutes += 5;
+            if (timeMinutes >= endTime) {
+                log("<br><span style='color:#f1c40f; font-size: 14px;'>ALHAMDULILLAH! WAKTU BUKA PUASA TELAH TIBA! KAMU MENANG!</span>");
+                triggerEndGame(true);
+                return true;
+            }
+            return false;
+        }
+
+        // --- AKSI PEMAIN (DENGAN ANIMASI) ---
+        function playerAction(action) {
+            if (!isPlayerTurn || gameOver || isWaitingForLLM) return;
+            let actionTaken = false;
+
+            switch (action) {
+                case 'serang':
+                    isPlayerTurn = false;
+                    player.state = 'attack';
+                    updateUI();
+
+                    // Animasi Maju
+                    let attackInterval = setInterval(() => {
+                        player.x = lerp(player.x, baseEnemyX - 80, 0.3);
+                        if (Math.abs(player.x - (baseEnemyX - 80)) < 5) {
+                            clearInterval(attackInterval);
+
+                            // Eksekusi Damage
+                            let isBuffed = player.buffTurns > 0;
+                            let dmg = player.baseAttack * (isBuffed ? 1.5 : 1);
+                            if (isBuffed) player.buffTurns--;
+
+                            currentEnemy.hp -= dmg;
+                            currentEnemy.blinkTimer = 15;
+                            screenShake = isBuffed ? 12 : 6;
+
+                            createParticles(currentEnemy.x + 60, currentEnemy.y + 50, "#fff", 15);
+                            addFloatingText(currentEnemy.x + 60, currentEnemy.y, `-${Math.floor(dmg)}`, "#e74c3c", isBuffed);
+                            log(`Kamu menyabetkan spatula! ${currentEnemy.name} menerima ${Math.floor(dmg)} damage.`);
+
+                            // Animasi Mundur
+                            setTimeout(() => {
+                                let retreatInterval = setInterval(() => {
+                                    player.x = lerp(player.x, basePlayerX, 0.2);
+                                    if (Math.abs(player.x - basePlayerX) < 2) {
+                                        player.x = basePlayerX;
+                                        player.state = 'idle';
+                                        clearInterval(retreatInterval);
+                                        finishPlayerTurn();
+                                    }
+                                }, 16);
+                            }, 200);
+                        }
+                    }, 16);
+                    return; // Tunggu animasi selesai
+
+                case 'sabar':
+                    if (player.konsentrasi >= 10) {
+                        player.konsentrasi -= 10;
+                        let heal = 40;
+                        player.iman = Math.min(player.maxIman, player.iman + heal);
+                        player.state = 'heal';
+                        createParticles(player.x + 50, player.y + 100, "#2ecc71", 30, "heal");
+                        addFloatingText(player.x + 50, player.y - 20, `+${heal}`, "#2ecc71");
+                        log(`Kamu bersabar. Memulihkan <span style="color:#2ecc71">${heal} Iman</span>.`);
+
+                        setTimeout(() => { player.state = 'idle'; finishPlayerTurn(); }, 600);
+                        actionTaken = true;
+                    } else { log("Konsentrasi tidak cukup!"); }
+                    break;
+
+                case 'fokus':
+                    if (player.konsentrasi >= 15) {
+                        player.konsentrasi -= 15;
+                        player.buffTurns = 3;
+                        player.state = 'heal';
+                        createParticles(player.x + 50, player.y + 100, "#3498db", 30, "heal");
+                        addFloatingText(player.x + 50, player.y - 20, `FOKUS!`, "#3498db", true);
+                        log(`Kamu fokus! Attack meningkat 50% untuk 3 serangan.`);
+
+                        setTimeout(() => { player.state = 'idle'; finishPlayerTurn(); }, 600);
+                        actionTaken = true;
+                    } else { log("Konsentrasi tidak cukup!"); }
+                    break;
+
+                case 'nasihat':
+                    if (player.konsentrasi >= 20) {
+                        player.konsentrasi -= 20;
+                        log("<i style='color:#bdc3c7'>Mencari pencerahan batin... ✨</i>");
+                        isWaitingForLLM = true;
+                        player.state = 'heal';
+                        updateUI();
+
+                        callGemini("Berikan 1 kalimat super lucu dan lebay (maks 15 kata) untuk memotivasi orang yang sedang puasa agar tidak tergoda makanan.").then(res => {
+                            let heal = 60;
+                            player.iman = Math.min(player.maxIman, player.iman + heal);
+                            createParticles(player.x + 50, player.y + 100, "#f1c40f", 40, "heal");
+                            addFloatingText(player.x + 50, player.y - 20, `+${heal} PENCERAHAN`, "#f1c40f", true);
+                            log(`<span style="color:#f1c40f">✨ Nasihat: "${res}"</span>`);
+                            log(`Hati kembali tenang. Memulihkan <span style="color:#2ecc71">${heal} Iman</span>.`);
+
+                            isWaitingForLLM = false;
+                            player.state = 'idle';
+                            finishPlayerTurn();
+                        });
+                        return;
+                    } else { log("Konsentrasi tidak cukup!"); }
+                    break;
+
+                case 'ultimate':
+                    if (player.ultimateUses <= 0) {
+                        log("Jurus Pamungkas sudah habis dipakai!");
+                        return;
+                    }
+                    if (player.konsentrasi >= 30 && player.iman > 20) {
+                        player.konsentrasi -= 30;
+                        player.iman -= 20; // Mengorbankan Iman
+                        player.ultimateUses--;
+
+                        isPlayerTurn = false;
+                        player.state = 'attack';
+                        updateUI();
+
+                        log("<br><b style='color:#ff7675; font-size:12px;'>🔥 PAMUNGKAS: SPATULA SAKTI!</b>");
+                        log(`Mengorbankan <span style='color:#e74c3c'>20 Iman</span> & <span style='color:#3498db'>30 Fokus</span>.`);
+
+                        createParticles(player.x + 50, player.y + 50, "#ff7675", 50, "burst");
+
+                        // Animasi Dash Pamungkas
+                        let attackInterval = setInterval(() => {
+                            player.x = lerp(player.x, baseEnemyX - 80, 0.4);
+                            if (Math.abs(player.x - (baseEnemyX - 80)) < 5) {
+                                clearInterval(attackInterval);
+
+                                let dmg = player.baseAttack * 3.5; // Damage Spesial Besar
+                                currentEnemy.hp -= dmg;
+                                currentEnemy.blinkTimer = 20;
+                                screenShake = 30; // Getaran masif
+
+                                createParticles(currentEnemy.x + 60, currentEnemy.y + 50, "#ff7675", 60);
+                                addFloatingText(currentEnemy.x + 60, currentEnemy.y - 10, `CRITICAL -${Math.floor(dmg)}!`, "#ff7675", true);
+
+                                setTimeout(() => {
+                                    let retreatInterval = setInterval(() => {
+                                        player.x = lerp(player.x, basePlayerX, 0.2);
+                                        if (Math.abs(player.x - basePlayerX) < 2) {
+                                            player.x = basePlayerX;
+                                            player.state = 'idle';
+                                            clearInterval(retreatInterval);
+                                            finishPlayerTurn();
+                                        }
+                                    }, 16);
+                                }, 400);
+                            }
+                        }, 16);
+                        return;
+                    } else {
+                        log("Butuh minimal 30 Fokus dan 21 Iman untuk pamungkas!");
+                    }
+                    break;
+
+                case 'lari':
+                    if (timeMinutes < 17 * 60) {
+                        log(`Kamu memalingkan wajah dan lari dari ${currentEnemy.name}!`);
+                        createParticles(player.x + 50, player.y + 80, "#ecf0f1", 20); // Efek debu lari
+                        if (advanceTime()) return;
+                        setTimeout(() => { spawnEnemy(); updateUI(); }, 500);
+                        return;
+                    }
+                    break;
+            }
+
+            if (actionTaken && action !== 'serang') updateUI(); // Fallback jika bukan serang yang panggil finish otomatis
+        }
+
+        function finishPlayerTurn() {
+            isPlayerTurn = false;
+            updateUI();
+
+            if (currentEnemy.hp <= 0) {
+                setTimeout(() => {
+                    log(`<b>${currentEnemy.name}</b> berhasil ditepis!`);
+                    player.konsentrasi = Math.min(player.maxKonsentrasi, player.konsentrasi + 10);
+                    createParticles(currentEnemy.x + 60, currentEnemy.y + 50, currentEnemy.pixelData === sprGorengan ? "#e67e22" : "#0984e3", 40);
+                    currentEnemy = null;
+
+                    if (advanceTime()) return;
+                    setTimeout(() => { spawnEnemy(); isPlayerTurn = true; updateUI(); }, 1000);
+                }, 800);
+            } else {
+                if (advanceTime()) return;
+                setTimeout(enemyTurn, 1000);
+            }
+        }
+
+        // --- AKSI MUSUH (DENGAN ANIMASI) ---
+        function enemyTurn() {
+            if (gameOver || !currentEnemy) return;
+
+            currentEnemy.state = 'attack';
+
+            // Animasi Musuh Maju
+            let attackInterval = setInterval(() => {
+                currentEnemy.x = lerp(currentEnemy.x, basePlayerX + 80, 0.3);
+                if (Math.abs(currentEnemy.x - (basePlayerX + 80)) < 5) {
+                    clearInterval(attackInterval);
+
+                    // Eksekusi Damage
+                    let dmg = Math.floor(currentEnemy.attack * (0.8 + Math.random() * 0.4));
+                    player.iman -= dmg;
+                    player.hitTimer = 15;
+                    screenShake = 15;
+
+                    createParticles(player.x + 50, player.y + 50, "#e74c3c", 20);
+                    addFloatingText(player.x + 50, player.y - 10, `-${dmg}`, "#e74c3c", true);
+                    log(`<b>${currentEnemy.name}</b> menggoda! Imanmu berkurang <span style="color:#e74c3c">${dmg}</span>.`);
+
+                    // Animasi Musuh Mundur
+                    setTimeout(() => {
+                        let retreatInterval = setInterval(() => {
+                            currentEnemy.x = lerp(currentEnemy.x, baseEnemyX, 0.2);
+                            if (Math.abs(currentEnemy.x - baseEnemyX) < 2) {
+                                currentEnemy.x = baseEnemyX;
+                                currentEnemy.state = 'idle';
+                                clearInterval(retreatInterval);
+
+                                // Cek Kalah
+                                if (player.iman <= 0) {
+                                    log("<br><span style='color:#e74c3c; font-size: 14px;'>IMANMU RUNTUH! KAMU BATAL PUASA! GAME OVER!</span>");
+                                    player.iman = 0;
+                                    triggerEndGame(false);
+                                } else {
+                                    isPlayerTurn = true;
+                                    updateUI();
+                                }
+                            }
+                        }, 16);
+                    }, 200);
+                }
+            }, 16);
+        }
+
+        // --- RENDER VISUAL (CANVAS) ---
+        let frameCount = 0;
+
+        // Fungsi Render Pixel Art Musuh
+        function drawPixelArt(ctx, x, y, size, dataMatrix) {
+            let pSize = size;
+            for (let row = 0; row < dataMatrix.length; row++) {
+                let str = dataMatrix[row];
+                for (let col = 0; col < str.length; col++) {
+                    let char = str[col];
+                    if (pal[char] && pal[char] !== "transparent") {
+                        ctx.fillStyle = pal[char];
+                        ctx.fillRect(x + col * pSize, y + row * pSize, pSize, pSize);
+                    }
+                }
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frameCount++;
+
+            ctx.save();
+
+            // Efek Screen Shake
+            if (screenShake > 0) {
+                let dx = (Math.random() - 0.5) * screenShake;
+                let dy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(dx, dy);
+                screenShake *= 0.8; // redam shake perlahan
+                if (screenShake < 0.5) screenShake = 0;
+            }
+
+            // 1. Background Langit (Berubah gelap seiring waktu)
+            let timeProgress = Math.min(1, (timeMinutes - 900) / (1080 - 900));
+            let r = Math.floor(74 - (50 * timeProgress));
+            let g = Math.floor(144 - (100 * timeProgress));
+            let b = Math.floor(226 - (150 * timeProgress));
+
+            let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, `rgb(${r}, ${g}, ${b})`);
+            gradient.addColorStop(1, `rgb(${r + 50}, ${g - 20}, ${b - 50})`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Lantai / Tanah dengan grid sederhana
+            ctx.fillStyle = "#2d3436";
+            ctx.fillRect(0, 270, canvas.width, 80);
+            ctx.strokeStyle = "#1e272e";
+            ctx.lineWidth = 2;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 270); ctx.lineTo(i - 20, canvas.height); ctx.stroke();
+            }
+
+            // 2. Render Player (Sekarang pakai Native Pixel Art)
+            let py = player.y;
+
+            // Animasi napas idle
+            if (player.state === 'idle') py += Math.sin(frameCount * 0.05) * 4;
+
+            if (player.hitTimer > 0) {
+                player.hitTimer--;
+                if (player.hitTimer % 4 < 2) ctx.globalAlpha = 0.5; // Kedap kedip
+            }
+
+            // Gambar bayangan di tanah
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.beginPath();
+            ctx.ellipse(player.x + 60, 290, 40, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Render Sprite Player
+            let playerSprite = (player.state === 'attack') ? sprPlayerAttack : sprPlayerIdle;
+            drawPixelArt(ctx, player.x, py, 8, playerSprite);
+
+            // Aura buff (Jika fokus)
+            if (player.buffTurns > 0) {
+                ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.1) * 0.1;
+                ctx.fillStyle = "#3498db";
+                ctx.beginPath();
+                ctx.ellipse(player.x + 60, py + 110, 50, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalAlpha = 1.0;
+
+            // 3. Render Musuh (Pixel Art)
+            if (currentEnemy && currentEnemy.hp > 0) {
+                let ey = currentEnemy.y;
+
+                if (currentEnemy.state === 'idle') {
+                    ey += Math.sin(frameCount * 0.1) * (currentEnemy.pixelData === sprEsBuah ? 10 : 3); // Es buah lebih melayang
+                }
+
+                if (currentEnemy.blinkTimer > 0) {
+                    currentEnemy.blinkTimer--;
+                    let kb = currentEnemy.blinkTimer % 2 === 0 ? 8 : -8; // Knockback visual
+                    ctx.globalCompositeOperation = "source-atop"; // Flash putih
+                    drawPixelArt(ctx, currentEnemy.x + kb, ey, 8, currentEnemy.pixelData);
+                    ctx.fillStyle = "rgba(255,255,255,0.7)";
+                    ctx.fillRect(currentEnemy.x + kb - 10, ey - 10, currentEnemy.w + 20, currentEnemy.h + 20);
+                    ctx.globalCompositeOperation = "source-over";
+                } else {
+                    // Gambar shadow
+                    ctx.fillStyle = "rgba(0,0,0,0.3)";
+                    ctx.beginPath();
+                    ctx.ellipse(currentEnemy.x + currentEnemy.w / 2, 290, 40, 10, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Gambar sprite pixel art
+                    drawPixelArt(ctx, currentEnemy.x, ey, 8, currentEnemy.pixelData);
+                }
+            }
+
+            // 4. Render Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 50;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // 5. Render Floating Texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.fillStyle = ft.color;
+                ctx.font = `bold ${ft.size}px 'Press Start 2P', cursive`;
+                ctx.textAlign = "center";
+
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "#000";
+                ctx.strokeText(ft.text, ft.x, ft.y);
+                ctx.fillText(ft.text, ft.x, ft.y);
+
+                ft.y += ft.vy;
+                ft.alpha -= 0.02;
+                ft.life--;
+
+                if (ft.life <= 0 || ft.alpha <= 0) {
+                    floatingTexts.splice(i, 1);
+                }
+            }
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        // Mulai Game
+        initGame();
+        render();
+
+    </script>
+</body>
+
+</html>
